@@ -31,16 +31,9 @@
 #
 ############################################################################
 
-# add the core Flight tasks that the additional flight tasks depend on
-add_subdirectory(FlightTask)
-add_subdirectory(Utility)
-add_subdirectory(Manual)
-add_subdirectory(Auto)
-add_subdirectory(AutoMapper)
-add_subdirectory(AutoMapper2)
-add_subdirectory(AquaticAuto)
+px4_add_library(FlightTaskAquaticAutoLineSmooth
+	FlightTaskAquaticAutoLineSmooth.cpp
+)
 
-# add all additional flight tasks
-foreach(task ${flight_tasks_all})
-    add_subdirectory(${task})
-endforeach()
+target_link_libraries(FlightTaskAquaticAutoLineSmooth PUBLIC FlightTaskAquaticAuto FlightTaskUtility)
+target_include_directories(FlightTaskAquaticAutoLineSmooth PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
