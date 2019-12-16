@@ -435,6 +435,11 @@ MulticopterAttitudeControl::Run()
 		return;
 	}
 
+	_hydradrone_status_sub.update(&_hydradrone_status);
+	if (_hydradrone_status.status != hydradrone_status_s::HYDRADRONE_STATUS_MC) {
+		return;
+	}
+
 	perf_begin(_loop_perf);
 
 	/* run controller on gyro changes */
