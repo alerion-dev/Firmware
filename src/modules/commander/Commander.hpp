@@ -67,6 +67,7 @@
 #include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/esc_status.h>
+#include <uORB/topics/hydradrone_status.h>
 
 using math::constrain;
 
@@ -277,6 +278,7 @@ private:
 	// Subscriptions
 	uORB::Subscription					_parameter_update_sub{ORB_ID(parameter_update)};
 	uORB::Subscription					_vehicle_acceleration_sub{ORB_ID(vehicle_acceleration)};
+	uORB::Subscription					_hydradrone_status_sub{ORB_ID(hydradrone_status)};
 
 	uORB::SubscriptionData<airspeed_s>			_airspeed_sub{ORB_ID(airspeed)};
 	uORB::SubscriptionData<estimator_status_s>		_estimator_status_sub{ORB_ID(estimator_status)};

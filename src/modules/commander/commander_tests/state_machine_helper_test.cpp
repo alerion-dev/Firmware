@@ -305,8 +305,8 @@ bool StateMachineHelperTest::armingStateTransitionTest()
 					     nullptr /* no mavlink_log_pub */,
 					     &status_flags,
 					     (check_gps ? ARM_REQ_GPS_BIT : 0),
-					     2e6 /* 2 seconds after boot, everything should be checked */
-								    );
+					     2e6, /* 2 seconds after boot, everything should be checked */
+						 nullptr);
 
 		// Validate result of transition
 		ut_compare(test->assertMsg, test->expected_transition_result, result);

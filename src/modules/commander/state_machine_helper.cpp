@@ -108,7 +108,7 @@ void reset_offboard_loss_globals(actuator_armed_s *armed, const bool old_failsaf
 transition_result_t arming_state_transition(vehicle_status_s *status, const safety_s &safety,
 		const arming_state_t new_arming_state, actuator_armed_s *armed, const bool fRunPreArmChecks,
 		orb_advert_t *mavlink_log_pub, vehicle_status_flags_s *status_flags, const uint8_t arm_requirements,
-		const hrt_abstime &time_since_boot)
+		const hrt_abstime &time_since_boot, hydradrone_status_s* hydradrone_status)
 {
 	// Double check that our static arrays are still valid
 	static_assert(vehicle_status_s::ARMING_STATE_INIT == 0, "ARMING_STATE_INIT == 0");
@@ -187,6 +187,16 @@ transition_result_t arming_state_transition(vehicle_status_s *status, const safe
 						feedback_provided = true;
 						valid_transition = false;
 					}
+				}
+
+				if(hydradrone_status != nullptr &&
+					(hydradrone_status->status == hydradrone_status_s::HYDRADRONE_STATUS_UNKNOWN ||
+					 hydradrone_status->status == hydradrone_status_s::HYDRADRONE_STATUS_TRANSIENT))
+				{
+					mavlink_log_critical(mavlink_log_pub, "Hydradrone in %s state.",
+						(hydradrone_status->status == hydradrone_status_s::HYDRADRONE_STATUS_UNKNOWN) ? "UNKNOWN" : "TRANSIENT");
+					feedback_provided = false;	// Follow up with denined transition description
+					valid_transition = false;	// Cannot arm while hydradrone status is unknown or transient
 				}
 			}
 		}
