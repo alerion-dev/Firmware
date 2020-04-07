@@ -71,6 +71,8 @@ uint16 VEHICLE_CMD_DO_VTOL_TRANSITION = 3000    # Command VTOL transition
 uint16 VEHICLE_CMD_ARM_AUTHORIZATION_REQUEST = 3001    # Request arm authorization
 uint16 VEHICLE_CMD_PAYLOAD_PREPARE_DEPLOY = 30001	# Prepare a payload deployment in the flight plan
 uint16 VEHICLE_CMD_PAYLOAD_CONTROL_DEPLOY = 30002	# Control a pre-programmed payload deployment
+uint16 VEHICLE_CMD_DO_MODE_AQUATIC = 45001		# Switch hydradrone to multirotor mode
+uint16 VEHICLE_CMD_DO_MODE_MULTIROTOR = 45002		# Switch hydradrone to aquatic mode
 uint16 VEHICLE_CMD_PREFLIGHT_UAVCAN = 243		# UAVCAN configuration. If param 1 == 1 actuator mapping and direction assignment should be started
 uint16 VEHICLE_CMD_LOGGING_START = 2510		# start streaming ULog data
 uint16 VEHICLE_CMD_LOGGING_STOP = 2511			# stop streaming ULog data
