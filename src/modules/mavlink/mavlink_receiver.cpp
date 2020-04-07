@@ -68,6 +68,8 @@
 #include "mavlink_main.h"
 #include "mavlink_receiver.h"
 
+#include "v2.0/hydradrone/mavlink_msg_hydradrone_status.h"
+
 #ifdef CONFIG_NET
 #define MAVLINK_RECEIVER_NET_ADDED_STACK 1360
 #else
@@ -377,6 +379,17 @@ MavlinkReceiver::send_storage_information(int storage_id)
 }
 
 void
+MavlinkReceiver::send_hydradrone_status() {
+	hydradrone_status_s status_s;
+	bool valid = _hydradrone_status_sub.copy(&status_s);
+
+	if(!valid) {
+		status_s.status = status_s.HYDRADRONE_STATUS_UNKNOWN;
+	}
+	mavlink_msg_hydradrone_status_send(_mavlink->get_channel(), status_s.status);
+}
+
+void
 MavlinkReceiver::handle_message_command_long(mavlink_message_t *msg)
 {
 	/* command */
@@ -504,6 +517,12 @@ void MavlinkReceiver::handle_message_command_both(mavlink_message_t *msg, const 
 
 		} else if (cmd_mavlink.command == MAV_CMD_LOGGING_STOP) {
 			_mavlink->request_stop_ulog_streaming();
+		} else if (cmd_mavlink.command == MAV_CMD_REQUEST_MESSAGE) {
+			switch ((int)cmd_mavlink.param1) {
+				case MAVLINK_MSG_ID_HYDRADRONE_STATUS:
+					send_hydradrone_status();
+					break;
+			}
 		}
 
 		if (!send_ack) {
