@@ -65,11 +65,12 @@ private:
 
 	/* Checks specific to fixedwing airframes */
 	bool checkFixedwing(const mission_s &mission, float home_alt, bool land_start_req);
-	bool checkTakeoff(const mission_s &mission, float home_alt);
+	bool checkTakeoff(const mission_s &mission, float home_alt, size_t start_index);
 	bool checkFixedWingLanding(const mission_s &mission, bool land_start_req);
 
 	/* Checks specific to rotarywing airframes */
-	bool checkRotarywing(const mission_s &mission, float home_alt);
+	bool checkRotarywing(const mission_s &mission, float home_alt, size_t start_index);
+	bool checkHydradrone(const mission_s &mission, float home_alt);
 
 public:
 	MissionFeasibilityChecker(Navigator *navigator) : _navigator(navigator) {}
@@ -84,5 +85,7 @@ public:
 	bool checkMissionFeasible(const mission_s &mission,
 				  float max_distance_to_1st_waypoint, float max_distance_between_waypoints,
 				  bool land_start_req);
+
+	bool hasModeSwitching(const mission_s &mission);
 
 };

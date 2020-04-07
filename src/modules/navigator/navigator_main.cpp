@@ -213,6 +213,7 @@ Navigator::run()
 		_land_detected_sub.update(&_land_detected);
 		_position_controller_status_sub.update();
 		_home_pos_sub.update(&_home_pos);
+		_hydra_status_sub.update(&_hydra_status);
 
 		if (_vehicle_command_sub.updated()) {
 			vehicle_command_s cmd{};
