@@ -103,6 +103,18 @@ void HydradroneCommander::_publish_hydradrone_status() {
 	}
 }
 
+void HydradroneCommander::_acknowledge_command(uint8_t result) {
+	auto& ack_s = _vehicle_command_ack_pub.get();
+	ack_s.timestamp = hrt_absolute_time();
+	ack_s.command = _vehicle_command.command;
+	ack_s.result = result;
+	ack_s.target_system = _vehicle_command.source_system;
+	ack_s.target_component = _vehicle_command.source_component;
+	if(!_vehicle_command_ack_pub.update()) {
+		PX4_ERR("Couldn't publish in vehicle command ack topic");
+	}
+}
+
 void HydradroneCommander::_state_machine_finished(uint8_t final_status) {
 	auto cmdr = ModuleBase<HydradroneCommander>::get_instance();	// Get self
 	if(cmdr == nullptr)  {
@@ -138,25 +150,34 @@ void HydradroneCommander::Run()
 		}
 	}
 
-	if (_manual_control_sp_sub.update(&_manual_control_sp) ||
-		_vehicle_status_sub.update(&_vehicle_status) ||
-		_hydradrone_status_sub.update(&_hydradrone_status) ||
-		mode_command_received) {
-
+	if(_hydradrone_status_sub.update(&_hydradrone_status)) {
 		// Check that our status was not overriden by other modules
 		if(_hydradrone_status.status != _status) {
 			_publish_hydradrone_status();
 		}
+	}
+
+	if (_manual_control_sp_sub.update(&_manual_control_sp) ||
+		_vehicle_status_sub.update(&_vehicle_status) ||
+		mode_command_received) {
 
 		bool disarmed = _vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_STANDBY;
 
 		// Somebody has published a valid desired state.
 		if(mode_command_received) {
-			if(_status == STATUS_TRANSIENT) {
-				PX4_INFO("Hydradrone commander: Waiting for transition to finish before switching mode");
-			}
-			if(!disarmed) {
+			_land_detector_sub.update();
+			if(!_land_detector_sub.get().landed) {	// Not landed, deny mission item
+				_acknowledge_command(vehicle_command_ack_s::VEHICLE_RESULT_DENIED);
+			} else if(!disarmed) {
 				PX4_INFO("Hydradrone commander: Waiting for disarm before switching mode");
+				_acknowledge_command(vehicle_command_ack_s::VEHICLE_RESULT_IN_PROGRESS);
+			} else if(_status == STATUS_TRANSIENT) {
+				PX4_INFO("Hydradrone commander: Waiting for transition to finish before switching mode");
+				_acknowledge_command(vehicle_command_ack_s::VEHICLE_RESULT_IN_PROGRESS);
+			} else if(_status == _desired) {	// Already in requested state
+				_acknowledge_command(vehicle_command_ack_s::VEHICLE_RESULT_ACCEPTED);
+			} else {	// Transition starts
+				_acknowledge_command(vehicle_command_ack_s::VEHICLE_RESULT_IN_PROGRESS);
 			}
 		}
 

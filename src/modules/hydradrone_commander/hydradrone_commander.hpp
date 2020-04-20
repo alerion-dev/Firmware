@@ -50,6 +50,7 @@
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_command_ack.h>
+#include <uORB/topics/vehicle_land_detected.h>
 
 #include "StateMachine.hpp"
 
@@ -95,6 +96,7 @@ private:
 	void parameters_updated();
 
 	void _publish_hydradrone_status();
+	void _acknowledge_command(uint8_t result);
 
 	bool _go_to_state(uint8_t desired_state);
 
@@ -105,6 +107,7 @@ private:
 	uORB::SubscriptionCallbackWorkItem _manual_control_sp_sub{this, ORB_ID(manual_control_setpoint)};
 	uORB::SubscriptionCallbackWorkItem _vehicle_command_sub{this, ORB_ID(vehicle_command)};
 	uORB::Subscription _parameter_update_sub{ORB_ID(parameter_update)};		/**< parameter updates subscription */
+	uORB::SubscriptionData<vehicle_land_detected_s> _land_detector_sub{ORB_ID(vehicle_land_detected)};
 
 	uORB::PublicationData<hydradrone_status_s> _hydradrone_status_pub{ORB_ID(hydradrone_status)};
 	uORB::PublicationData<vehicle_command_ack_s> _vehicle_command_ack_pub{ORB_ID(vehicle_command_ack)};
