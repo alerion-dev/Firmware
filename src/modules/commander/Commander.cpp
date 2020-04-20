@@ -154,6 +154,8 @@ static bool last_overload = false;
 
 static struct vehicle_status_flags_s status_flags = {};
 
+static struct hydradrone_status_s hydradrone_status = {};
+
 static uint64_t rc_signal_lost_timestamp;		// Time at which the RC reception was lost
 
 static uint8_t arm_requirements = ARM_REQ_NONE;
@@ -555,7 +557,7 @@ bool shutdown_if_allowed()
 {
 	return TRANSITION_DENIED != arming_state_transition(&status, safety, vehicle_status_s::ARMING_STATE_SHUTDOWN,
 			&armed, false /* fRunPreArmChecks */, &mavlink_log_pub, &status_flags, arm_requirements,
-			hrt_elapsed_time(&commander_boot_timestamp));
+			hrt_elapsed_time(&commander_boot_timestamp), &hydradrone_status);
 }
 
 transition_result_t arm_disarm(bool arm, bool run_preflight_checks, orb_advert_t *mavlink_log_pub_local,
@@ -573,7 +575,8 @@ transition_result_t arm_disarm(bool arm, bool run_preflight_checks, orb_advert_t
 					     mavlink_log_pub_local,
 					     &status_flags,
 					     arm_requirements,
-					     hrt_elapsed_time(&commander_boot_timestamp));
+					     hrt_elapsed_time(&commander_boot_timestamp),
+						 &hydradrone_status);
 
 	if (arming_res == TRANSITION_CHANGED) {
 		mavlink_log_info(mavlink_log_pub_local, "%s by %s", arm ? "ARMED" : "DISARMED", armedBy);
@@ -1111,6 +1114,8 @@ Commander::handle_command(vehicle_status_s *status_local, const vehicle_command_
 	case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI_LOCATION:
 	case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI_WPNEXT_OFFSET:
 	case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI_NONE:
+	case vehicle_command_s::VEHICLE_CMD_DO_MODE_AQUATIC:
+	case vehicle_command_s::VEHICLE_CMD_DO_MODE_MULTIROTOR:
 		/* ignore commands that are handled by other parts of the system */
 		break;
 
@@ -1531,6 +1536,8 @@ Commander::run()
 
 		sp_man_sub.update(&sp_man);
 
+		_hydradrone_status_sub.update(&hydradrone_status);
+
 		offboard_control_update(status_changed);
 
 		if (system_power_sub.updated()) {
@@ -1573,7 +1580,7 @@ Commander::run()
 
 					if (TRANSITION_CHANGED == arming_state_transition(&status, safety, vehicle_status_s::ARMING_STATE_STANDBY,
 							&armed, true /* fRunPreArmChecks */, &mavlink_log_pub,
-							&status_flags, arm_requirements, hrt_elapsed_time(&commander_boot_timestamp))
+							&status_flags, arm_requirements, hrt_elapsed_time(&commander_boot_timestamp), &hydradrone_status)
 					   ) {
 						status_changed = true;
 					}
@@ -1746,7 +1753,7 @@ Commander::run()
 
 			arming_ret = arming_state_transition(&status, safety, vehicle_status_s::ARMING_STATE_STANDBY, &armed,
 							     true /* fRunPreArmChecks */, &mavlink_log_pub, &status_flags,
-							     arm_requirements, hrt_elapsed_time(&commander_boot_timestamp));
+							     arm_requirements, hrt_elapsed_time(&commander_boot_timestamp), &hydradrone_status);
 
 			if (arming_ret == TRANSITION_DENIED) {
 				/* do not complain if not allowed into standby */
@@ -1983,7 +1990,8 @@ Commander::run()
 				if (rc_wants_disarm && (land_detector.landed || manual_thrust_mode)) {
 					arming_ret = arming_state_transition(&status, safety, vehicle_status_s::ARMING_STATE_STANDBY, &armed,
 									     true /* fRunPreArmChecks */,
-									     &mavlink_log_pub, &status_flags, arm_requirements, hrt_elapsed_time(&commander_boot_timestamp));
+									     &mavlink_log_pub, &status_flags, arm_requirements, hrt_elapsed_time(&commander_boot_timestamp),
+										 &hydradrone_status);
 				}
 
 				stick_off_counter++;
@@ -2033,7 +2041,8 @@ Commander::run()
 					} else if (status.arming_state == vehicle_status_s::ARMING_STATE_STANDBY) {
 						arming_ret = arming_state_transition(&status, safety, vehicle_status_s::ARMING_STATE_ARMED, &armed,
 										     !in_arming_grace_period /* fRunPreArmChecks */,
-										     &mavlink_log_pub, &status_flags, arm_requirements, hrt_elapsed_time(&commander_boot_timestamp));
+										     &mavlink_log_pub, &status_flags, arm_requirements, hrt_elapsed_time(&commander_boot_timestamp),
+											 &hydradrone_status);
 
 						if (arming_ret != TRANSITION_CHANGED) {
 							px4_usleep(100000);
@@ -3448,7 +3457,7 @@ void *commander_low_prio_loop(void *arg)
 					/* try to go to INIT/PREFLIGHT arming state */
 					if (TRANSITION_DENIED == arming_state_transition(&status, safety, vehicle_status_s::ARMING_STATE_INIT, &armed,
 							false /* fRunPreArmChecks */, &mavlink_log_pub, &status_flags,
-							arm_requirements, hrt_elapsed_time(&commander_boot_timestamp))) {
+							arm_requirements, hrt_elapsed_time(&commander_boot_timestamp), &hydradrone_status)) {
 
 						answer_command(cmd, vehicle_command_s::VEHICLE_CMD_RESULT_DENIED, command_ack_pub);
 						break;
@@ -3536,7 +3545,8 @@ void *commander_low_prio_loop(void *arg)
 
 						arming_state_transition(&status, safety, vehicle_status_s::ARMING_STATE_STANDBY, &armed,
 									false /* fRunPreArmChecks */,
-									&mavlink_log_pub, &status_flags, arm_requirements, hrt_elapsed_time(&commander_boot_timestamp));
+									&mavlink_log_pub, &status_flags, arm_requirements, hrt_elapsed_time(&commander_boot_timestamp),
+									&hydradrone_status);
 
 					} else {
 						tune_negative(true);

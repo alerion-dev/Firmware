@@ -66,6 +66,7 @@
 #include <uORB/topics/vehicle_local_position_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_trajectory_waypoint.h>
+#include <uORB/topics/hydradrone_status.h>
 
 #include "PositionControl.hpp"
 #include "Utility/ControlMath.hpp"
@@ -125,6 +126,7 @@ private:
 	uORB::Subscription _parameter_update_sub{ORB_ID(parameter_update)};		/**< notification of parameter updates */
 	uORB::Subscription _att_sub{ORB_ID(vehicle_attitude)};				/**< vehicle attitude */
 	uORB::Subscription _home_pos_sub{ORB_ID(home_position)}; 			/**< home position */
+	uORB::Subscription _hydradrone_status_sub{ORB_ID(hydradrone_status)};		/**< hydradrone status subscription */
 
 	hrt_abstime	_time_stamp_last_loop{0};		/**< time stamp of last loop iteration */
 
@@ -147,6 +149,7 @@ private:
 	home_position_s	_home_pos{};			/**< home position */
 	landing_gear_s _landing_gear{};
 	int8_t _old_landing_gear_position{landing_gear_s::GEAR_KEEP};
+	hydradrone_status_s _hydradrone_status{};	/**< hydradrone status */
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MPC_TKO_RAMP_T>) _param_mpc_tko_ramp_t, /**< time constant for smooth takeoff ramp */
@@ -522,6 +525,11 @@ MulticopterPositionControl::Run()
 	if (should_exit()) {
 		_local_pos_sub.unregisterCallback();
 		exit_and_cleanup();
+		return;
+	}
+
+	_hydradrone_status_sub.update(&_hydradrone_status);
+	if (_hydradrone_status.status != hydradrone_status_s::HYDRADRONE_STATUS_MC) {
 		return;
 	}
 

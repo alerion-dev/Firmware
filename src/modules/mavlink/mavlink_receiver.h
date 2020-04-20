@@ -98,6 +98,8 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_trajectory_waypoint.h>
 
+#include <uORB/topics/hydradrone_status.h>
+
 class Mavlink;
 
 class MavlinkReceiver : public ModuleParams
@@ -197,6 +199,8 @@ private:
 	void send_flight_information();
 	void send_storage_information(int storage_id);
 
+	void send_hydradrone_status();
+
 	/**
 	 * @brief Updates the battery, optical flow, and flight ID subscribed parameters.
 	 */
@@ -262,6 +266,7 @@ private:
 	uORB::Subscription	_parameter_update_sub{ORB_ID(parameter_update)};
 	uORB::Subscription	_vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription	_vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
+	uORB::Subscription	_hydradrone_status_sub{ORB_ID(hydradrone_status)};
 
 	static constexpr unsigned int	MOM_SWITCH_COUNT{8};
 	uint8_t				_mom_switch_pos[MOM_SWITCH_COUNT] {};

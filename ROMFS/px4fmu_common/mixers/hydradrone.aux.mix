@@ -1,0 +1,23 @@
+# Octo coaxial hydradrone auxiliary mixer
+#
+#	Handles:
+#		- the lock servo output (which is responsible for locking the rear arm, ensuring rigidity)
+#			This servo is commanded as a landing gear: it always starts locked
+#			-1.0 is locked, 1.0 is unlocked. No in-between.
+#		- the rotation servo output (which is responsible for the rotation of the rear four props)
+#			-0.52 is aquatic mode, 0.65 is multicopter mode
+#			When lock is engaged the NaN value has to be set, hence we use a tristate mixer class
+#		- the probe deployment servo output (which deploys the probe)
+#			-1.0 is retracted, 1.0 is deployed. No in-between.
+#
+
+M: 1
+S: 1 4  10000  10000      0 -10000  10000
+
+# Tristate ouput -1.0 input gives NaN, 0.0 input gives 6500 (MC mode = OFF), 1.0 input gives -5200 (AQUA mode = ON)
+
+T: 1 5 6500 -5200
+
+M: 1
+S: 1 6  10000  10000      0 -10000  10000
+

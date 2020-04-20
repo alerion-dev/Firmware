@@ -41,6 +41,7 @@ px4_add_romfs_files(
 	rc.logging
 	rc.mc_apps
 	rc.mc_defaults
+	rc.aqua_apps
 	rcS
 	rc.sensors
 	rc.thermal_cal

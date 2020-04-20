@@ -60,6 +60,7 @@ list(APPEND flight_tasks_all
 	Sport
 	AutoLine
 	AutoLineSmoothVel
+	AquaticAutoLineSmooth
 	AutoFollowMe
 	Offboard
 	Failsafe

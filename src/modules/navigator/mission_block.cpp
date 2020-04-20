@@ -125,6 +125,12 @@ MissionBlock::is_mission_item_reached()
 	case NAV_CMD_DO_SET_HOME:
 		return true;
 
+	case NAV_CMD_DO_MODE_MULTIROTOR:
+		return _navigator->get_hydra_status()->status == hydradrone_status_s::HYDRADRONE_STATUS_MC;
+
+	case NAV_CMD_DO_MODE_AQUATIC:
+		return _navigator->get_hydra_status()->status == hydradrone_status_s::HYDRADRONE_STATUS_AQUA;
+
 	default:
 		/* do nothing, this is a 3D waypoint */
 		break;

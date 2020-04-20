@@ -1,0 +1,22 @@
+#!/bin/sh
+#
+# Standard apps for aquatic drones. Attitude & Position control.
+#
+# NOTE: Script variables are declared/initialized/unset in the rcS script.
+#
+
+#
+# Start Aquatic Attitude Controller.
+#
+aqua_att_control start
+
+#
+# Start Aquatic Position Controller.
+#
+aqua_pos_control start
+
+#
+# Start Hydradrone Commander.
+#
+hydradrone_commander start
+

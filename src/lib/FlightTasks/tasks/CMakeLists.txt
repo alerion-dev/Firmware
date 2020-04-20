@@ -38,6 +38,7 @@ add_subdirectory(Manual)
 add_subdirectory(Auto)
 add_subdirectory(AutoMapper)
 add_subdirectory(AutoMapper2)
+add_subdirectory(AquaticAuto)
 
 # add all additional flight tasks
 foreach(task ${flight_tasks_all})

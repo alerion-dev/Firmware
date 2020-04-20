@@ -45,6 +45,8 @@
 #include "mavlink_simple_analyzer.h"
 #include "mavlink_high_latency2.h"
 
+#include "v2.0/hydradrone/mavlink_msg_hydradrone_status.h"
+
 #include <commander/px4_custom_mode.h>
 #include <drivers/drv_pwm_output.h>
 #include <lib/ecl/geo/geo.h>
@@ -108,6 +110,7 @@
 #include <uORB/topics/sensor_mag.h>
 #include <uORB/topics/vehicle_air_data.h>
 #include <uORB/topics/vehicle_magnetometer.h>
+#include <uORB/topics/hydradrone_status.h>
 #include <uORB/uORB.h>
 
 using matrix::wrap_2pi;
@@ -5024,6 +5027,68 @@ protected:
 	}
 };
 
+class MavlinkStreamHydradroneStatus : public MavlinkStream
+{
+public:
+	const char *get_name() const
+	{
+		return MavlinkStreamHydradroneStatus::get_name_static();
+	}
+
+	static const char *get_name_static()
+	{
+		return "HYDRADRONE_STATUS";
+	}
+
+	static uint16_t get_id_static()
+	{
+		return MAVLINK_MSG_ID_HYDRADRONE_STATUS;
+	}
+
+	uint16_t get_id()
+	{
+		return get_id_static();
+	}
+
+	static MavlinkStream *new_instance(Mavlink *mavlink)
+	{
+		return new MavlinkStreamHydradroneStatus(mavlink);
+	}
+
+	unsigned get_size()
+	{
+		return MAVLINK_MSG_ID_HYDRADRONE_STATUS_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES;
+	}
+
+private:
+	MavlinkOrbSubscription *_hydradrone_status_sub;
+	uint64_t _hydradrone_status_time;
+
+	/* do not allow top copying this class */
+	MavlinkStreamHydradroneStatus(MavlinkStreamHydradroneStatus &) = delete;
+	MavlinkStreamHydradroneStatus &operator = (const MavlinkStreamHydradroneStatus &) = delete;
+
+protected:
+	explicit MavlinkStreamHydradroneStatus(Mavlink *mavlink) : MavlinkStream(mavlink),
+		_hydradrone_status_sub(_mavlink->add_orb_subscription(ORB_ID(hydradrone_status))),
+		_hydradrone_status_time(0)
+	{}
+
+	bool send(const hrt_abstime t)
+	{
+		hydradrone_status_s hydra_status;
+
+		if (_hydradrone_status_sub->update(&_hydradrone_status_time, &hydra_status)) {
+
+			mavlink_msg_hydradrone_status_send(_mavlink->get_channel(), hydra_status.status);
+
+			return true;
+		}
+
+		return false;
+	}
+};
+
 static const StreamListItem streams_list[] = {
 	StreamListItem(&MavlinkStreamHeartbeat::new_instance, &MavlinkStreamHeartbeat::get_name_static, &MavlinkStreamHeartbeat::get_id_static),
 	StreamListItem(&MavlinkStreamStatustext::new_instance, &MavlinkStreamStatustext::get_name_static, &MavlinkStreamStatustext::get_id_static),
@@ -5083,7 +5148,8 @@ static const StreamListItem streams_list[] = {
 	StreamListItem(&MavlinkStreamGroundTruth::new_instance, &MavlinkStreamGroundTruth::get_name_static, &MavlinkStreamGroundTruth::get_id_static),
 	StreamListItem(&MavlinkStreamPing::new_instance, &MavlinkStreamPing::get_name_static, &MavlinkStreamPing::get_id_static),
 	StreamListItem(&MavlinkStreamOrbitStatus::new_instance, &MavlinkStreamOrbitStatus::get_name_static, &MavlinkStreamOrbitStatus::get_id_static),
-	StreamListItem(&MavlinkStreamObstacleDistance::new_instance, &MavlinkStreamObstacleDistance::get_name_static, &MavlinkStreamObstacleDistance::get_id_static)
+	StreamListItem(&MavlinkStreamObstacleDistance::new_instance, &MavlinkStreamObstacleDistance::get_name_static, &MavlinkStreamObstacleDistance::get_id_static),
+	StreamListItem(&MavlinkStreamHydradroneStatus::new_instance, &MavlinkStreamHydradroneStatus::get_name_static, &MavlinkStreamHydradroneStatus::get_id_static)
 };
 
 const char *get_stream_name(const uint16_t msg_id)

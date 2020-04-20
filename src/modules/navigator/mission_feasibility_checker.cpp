@@ -82,10 +82,15 @@ MissionFeasibilityChecker::checkMissionFeasible(const mission_s &mission,
 	failed = failed || !checkGeofence(mission, home_alt, home_valid);
 	failed = failed || !checkHomePositionAltitude(mission, home_alt, home_alt_valid, warned);
 
+	bool isHydradrone = _navigator->get_hydra_status()->status != hydradrone_status_s::HYDRADRONE_STATUS_UNKNOWN;
+	bool changesMode = hasModeSwitching(mission);
+
 	// VTOL always respects rotary wing feasibility
-	if (_navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
-	    || _navigator->get_vstatus()->is_vtol) {
-		failed = failed || !checkRotarywing(mission, home_alt);
+	if (isHydradrone || changesMode) {
+		failed = failed || !checkHydradrone(mission, home_alt);
+	} else if (_navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
+	    		|| _navigator->get_vstatus()->is_vtol) {
+		failed = failed || !checkRotarywing(mission, home_alt, 0);
 
 	} else {
 		failed = failed || !checkFixedwing(mission, home_alt, land_start_req);
@@ -95,20 +100,20 @@ MissionFeasibilityChecker::checkMissionFeasible(const mission_s &mission,
 }
 
 bool
-MissionFeasibilityChecker::checkRotarywing(const mission_s &mission, float home_alt)
+MissionFeasibilityChecker::checkRotarywing(const mission_s &mission, float home_alt, size_t start_index)
 {
 	/*
 	 * Perform check and issue feedback to the user
 	 * Mission is only marked as feasible if takeoff check passes
 	 */
-	return checkTakeoff(mission, home_alt);
+	return checkTakeoff(mission, home_alt, start_index);
 }
 
 bool
 MissionFeasibilityChecker::checkFixedwing(const mission_s &mission, float home_alt, bool land_start_req)
 {
 	/* Perform checks and issue feedback to the user for all checks */
-	bool resTakeoff = checkTakeoff(mission, home_alt);
+	bool resTakeoff = checkTakeoff(mission, home_alt, 0);
 	bool resLanding = checkFixedWingLanding(mission, land_start_req);
 
 	/* Mission is only marked as feasible if all checks return true */
@@ -250,7 +255,9 @@ MissionFeasibilityChecker::checkMissionItemValidity(const mission_s &mission)
 		    missionitem.nav_cmd != NAV_CMD_DO_SET_CAM_TRIGG_DIST &&
 		    missionitem.nav_cmd != NAV_CMD_DO_SET_CAM_TRIGG_INTERVAL &&
 		    missionitem.nav_cmd != NAV_CMD_SET_CAMERA_MODE &&
-		    missionitem.nav_cmd != NAV_CMD_DO_VTOL_TRANSITION) {
+		    missionitem.nav_cmd != NAV_CMD_DO_VTOL_TRANSITION &&
+			missionitem.nav_cmd != NAV_CMD_DO_MODE_MULTIROTOR &&
+			missionitem.nav_cmd != NAV_CMD_DO_MODE_AQUATIC) {
 
 			mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Mission rejected: item %i: unsupported cmd: %d", (int)(i + 1),
 					     (int)missionitem.nav_cmd);
@@ -287,7 +294,7 @@ MissionFeasibilityChecker::checkMissionItemValidity(const mission_s &mission)
 }
 
 bool
-MissionFeasibilityChecker::checkTakeoff(const mission_s &mission, float home_alt)
+MissionFeasibilityChecker::checkTakeoff(const mission_s &mission, float home_alt, size_t start_index)
 {
 	bool has_takeoff = false;
 	bool takeoff_first = false;
@@ -297,7 +304,7 @@ MissionFeasibilityChecker::checkTakeoff(const mission_s &mission, float home_alt
 		struct mission_item_s missionitem = {};
 		const ssize_t len = sizeof(struct mission_item_s);
 
-		if (dm_read((dm_item_t)mission.dataman_id, i, &missionitem, len) != len) {
+		if (dm_read((dm_item_t)mission.dataman_id, start_index + i, &missionitem, len) != len) {
 			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
 			return false;
 		}
@@ -347,7 +354,7 @@ MissionFeasibilityChecker::checkTakeoff(const mission_s &mission, float home_alt
 			struct mission_item_s missionitem = {};
 			const ssize_t len = sizeof(struct mission_item_s);
 
-			if (dm_read((dm_item_t)mission.dataman_id, i, &missionitem, len) != len) {
+			if (dm_read((dm_item_t)mission.dataman_id, start_index + i, &missionitem, len) != len) {
 				/* not supposed to happen unless the datamanager can't access the SD card, etc. */
 				return false;
 			}
@@ -374,11 +381,13 @@ MissionFeasibilityChecker::checkTakeoff(const mission_s &mission, float home_alt
 			    missionitem.nav_cmd != NAV_CMD_DO_SET_CAM_TRIGG_DIST &&
 			    missionitem.nav_cmd != NAV_CMD_DO_SET_CAM_TRIGG_INTERVAL &&
 			    missionitem.nav_cmd != NAV_CMD_SET_CAMERA_MODE &&
-			    missionitem.nav_cmd != NAV_CMD_DO_VTOL_TRANSITION) {
-				takeoff_first = false;
+			    missionitem.nav_cmd != NAV_CMD_DO_VTOL_TRANSITION &&
+				missionitem.nav_cmd != NAV_CMD_DO_MODE_MULTIROTOR &&
+				missionitem.nav_cmd != NAV_CMD_DO_MODE_AQUATIC) {
+				takeoff_first = true;
 
 			} else {
-				takeoff_first = true;
+				takeoff_first = false;
 
 			}
 		}
@@ -403,6 +412,128 @@ MissionFeasibilityChecker::checkTakeoff(const mission_s &mission, float home_alt
 
 	// all checks have passed
 	return true;
+}
+
+bool
+MissionFeasibilityChecker::hasModeSwitching(const mission_s &mission) {
+	for (size_t i = 0; i < mission.count; i++) {
+		mission_item_s missionitem{};
+		const ssize_t len = sizeof(mission_item_s);
+
+		if (dm_read((dm_item_t)mission.dataman_id, i, &missionitem, len) != len) {
+			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
+			return false;
+		}
+
+		if (missionitem.nav_cmd == NAV_CMD_DO_MODE_MULTIROTOR ||
+			missionitem.nav_cmd == NAV_CMD_DO_MODE_AQUATIC) {
+			return true;
+		}
+	}
+}
+
+bool
+MissionFeasibilityChecker::checkHydradrone(const mission_s &mission, float home_alt) {
+	uint8_t currentMode = _navigator->get_hydra_status()->status;
+	if(currentMode != hydradrone_status_s::HYDRADRONE_STATUS_MC &&
+		currentMode != hydradrone_status_s::HYDRADRONE_STATUS_AQUA)
+	{
+		// Invalid mode at mission upload: not able to check mission feasibility
+		mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Mission rejected: invalid hydradrone current mode");
+		return false;
+	}
+	bool aquatic = currentMode == hydradrone_status_s::HYDRADRONE_STATUS_AQUA;
+	bool landed = _navigator->get_land_detected()->landed;
+
+	// This struct represents the aerial sub-missions
+	struct aerial_sub_mission {
+		uint16_t start, count;
+	};
+
+	// Array of aerial sub-missions to check for multirotor constraints
+	auto sub_missions = new aerial_sub_mission[mission.count >> 1];	// Max number is half mission count
+	uint8_t sub_mission_index = 0;
+	bool in_sub_mission = false;
+
+	// If we start in multirotor mode, we must checkRotary from the start
+	if(!aquatic) {
+		sub_missions[sub_mission_index].start = 0;
+		in_sub_mission = true;
+	}
+
+	for (size_t i = 0; i < mission.count; i++) {
+		mission_item_s missionitem{};
+		const ssize_t len = sizeof(mission_item_s);
+
+		if (dm_read((dm_item_t)mission.dataman_id, i, &missionitem, len) != len) {
+			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
+			delete[] sub_missions;
+			return false;
+		}
+
+		if (missionitem.nav_cmd == NAV_CMD_DO_MODE_MULTIROTOR) {
+			// Redundancy of mode switch isn't grounds to reject the mission, warn the user
+			// This allows the same mission to be used whether starting on the ground or in water
+			if(!aquatic) {
+				mavlink_log_warning(_navigator->get_mavlink_log_pub(), "Mission warning: Already in multirotor mode, cannot switch");
+			} else if (!landed) {
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Mission rejected: Switching to mc while in the air");
+				delete[] sub_missions;
+				return false;
+			}
+			aquatic = false;
+
+			// Start aerial sub-mission if not already in one
+			if(!in_sub_mission) {
+				sub_missions[sub_mission_index].start = i + 1;	// Skip this command: +1
+				in_sub_mission = true;
+			}
+		} else if (missionitem.nav_cmd == NAV_CMD_DO_MODE_AQUATIC) {
+			if(aquatic) {
+				mavlink_log_warning(_navigator->get_mavlink_log_pub(), "Mission warning: Already in aquatic mode, cannot switch");
+			} else if (!landed) {
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Mission rejected: Switching to aquatic while in the air");
+				delete[] sub_missions;
+				return false;
+			}
+			aquatic = true;
+
+			// Finish the current aerial sub-mission if in one
+			if(in_sub_mission) {
+				sub_missions[sub_mission_index].count = i - sub_missions[sub_mission_index].start;
+				in_sub_mission = false;
+				sub_mission_index++;
+			}
+		} else if (missionitem.nav_cmd == NAV_CMD_TAKEOFF) {
+			if(aquatic) {
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Mission rejected: Trying to takeoff in aqatic mode");
+				delete[] sub_missions;
+				return false;
+			}
+			landed = false;
+		} else if (missionitem.nav_cmd == NAV_CMD_LAND) {
+			landed = true;
+		}
+	}
+	if(in_sub_mission) {
+		sub_missions[sub_mission_index].count = mission.count - sub_missions[sub_mission_index].start;
+		sub_mission_index++;
+	}
+
+	bool success = true;
+
+	// Check each air sub-mission for normal rotary wing mission rules
+	for(size_t i = 0; i < sub_mission_index && success; ++i) {
+		auto sub_mission = mission;
+		if(sub_missions[i].count > 0) {
+			sub_mission.count = sub_missions[i].count;
+			success = success && checkRotarywing(sub_mission, home_alt, sub_missions[i].start);
+		}
+	}
+	mavlink_log_info(_navigator->get_mavlink_log_pub(), "Hydradrone mission: Checked %u air sub-missions", sub_mission_index);
+
+	delete[] sub_missions;
+	return success;
 }
 
 bool
